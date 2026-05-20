@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '16'
+      - run: npm install
       - run: node ocean-news-monitor.js
         env:
-          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
           SLACK_WEBHOOK_URL_OCEAN: ${{ secrets.SLACK_WEBHOOK_URL_OCEAN }}
