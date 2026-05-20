@@ -148,20 +148,22 @@ function categorizeOceanNews(title, description) {
  * Check if article has positive sentiment
  */
 function isPositiveNews(title, description) {
+  // Since we're already searching for ocean-specific queries (coral restoration, ocean cleanup, etc),
+  // any article returned from those searches is already ocean-related.
+  // We just need to make sure it has positive signals to filter out purely negative/crisis stories.
+  
   const text = `${title} ${description || ''}`.toLowerCase();
   
-  // Must have ocean keyword
-  const hasOceanKeyword = CONFIG.oceanKeywords.some(kw => text.includes(kw));
-  if (!hasOceanKeyword) return false;
-  
-  // Exclude negative keywords
-  const hasNegativeKeyword = CONFIG.negativeKeywords.some(kw => text.includes(kw));
-  if (hasNegativeKeyword) return false;
-  
-  // Check for positive signals
+  // Check for positive signals to avoid pure doom/crisis stories
+  // But be lenient - articles about solutions often mention challenges
   const hasPositiveSignal = Object.values(CONFIG.positiveKeywords).flat().some(kw => text.includes(kw));
   
-  return hasPositiveSignal;
+  // If no positive signals found, still accept it if it's about a positive topic
+  // (many conservation articles don't use strong positive keywords)
+  const positiveTopics = ['conservation', 'protect', 'restore', 'clean', 'sustainable', 'research', 'discovery', 'solution'];
+  const hasPositiveTopic = positiveTopics.some(kw => text.includes(kw));
+  
+  return hasPositiveSignal || hasPositiveTopic;
 }
 
 /**
