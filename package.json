@@ -1,0 +1,31 @@
+{
+  "name": "underwater-lunatics-icp-news-monitor",
+  "version": "1.0.0",
+  "description": "AI-powered daily news monitoring for ICP-matching dive resorts, with automated Slack alerts",
+  "main": "icp-news-monitor-v2.js",
+  "scripts": {
+    "start": "node icp-news-monitor-v2.js",
+    "test": "node icp-news-monitor-v2.js",
+    "schedule": "echo 'Run: crontab -e and add: 0 8 * * * /usr/bin/node /path/to/icp-news-monitor-v2.js'"
+  },
+  "keywords": [
+    "news-monitoring",
+    "slack",
+    "automation",
+    "dive-resorts",
+    "icp",
+    "underwater"
+  ],
+  "author": "Julia Baumgartner - Underwater Lunatics Media",
+  "license": "MIT",
+  "optionalDependencies": {
+    "dotenv": "^16.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/icp-news-monitor.git"
+  }
+}
