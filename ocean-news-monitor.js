@@ -343,14 +343,93 @@ async function main() {
     
     // Search for ocean news
     const searchQueries = [
+      // Conservation & Protection
       'ocean conservation',
+      'marine conservation',
       'coral restoration',
+      'reef restoration',
       'marine protected area',
+      'ocean sanctuary',
+      'marine sanctuary',
+      'seagrass restoration',
+      'mangrove restoration',
+      'kelp forest restoration',
+      'ocean preservation',
+      
+      // Cleanup & Pollution Solutions
       'ocean cleanup',
+      'plastic removal ocean',
+      'ocean plastic solution',
+      'marine debris cleanup',
+      'microplastics removal',
+      'ocean pollution solution',
+      'beach cleanup initiative',
+      
+      // Sustainable & Responsible Practices
       'sustainable fishing',
+      'sustainable seafood',
+      'regenerative ocean farming',
+      'ocean farming',
+      'seaweed farming',
+      'blue economy',
+      'ocean agriculture',
+      
+      // Wildlife & Ecosystem
       'whale migration',
+      'whale recovery',
+      'sea turtle conservation',
+      'dolphin protection',
+      'shark conservation',
+      'fish population recovery',
+      'marine biodiversity',
+      'ocean ecosystem recovery',
+      'mangrove ecosystem',
+      'coral reef health',
+      'seabird protection',
+      
+      // Research & Science
       'marine research breakthrough',
-      'ocean technology innovation'
+      'ocean research discovery',
+      'marine biology breakthrough',
+      'oceanography research',
+      'ocean acidification solution',
+      'marine science innovation',
+      'sea level monitoring',
+      'ocean temperature research',
+      
+      // Technology & Innovation
+      'ocean technology innovation',
+      'marine technology',
+      'ocean monitoring technology',
+      'underwater robotics',
+      'ocean conservation technology',
+      'sustainable aquaculture technology',
+      'ocean energy renewable',
+      'wave energy ocean',
+      
+      // Community & Initiatives
+      'ocean restoration project',
+      'marine conservation initiative',
+      'coastal restoration',
+      'ocean partnership conservation',
+      'community ocean cleanup',
+      'citizen science ocean',
+      
+      // Specific Animals & Topics
+      'sea turtle recovery',
+      'whale population increase',
+      'shark fin ban',
+      'marine protected species',
+      'bioluminescent ocean',
+      'deep sea discovery',
+      'ocean exploration',
+      'marine expedition',
+      
+      // Climate Solutions
+      'blue carbon',
+      'ocean carbon sequestration',
+      'marine climate solution',
+      'coastal climate adaptation'
     ];
 
     for (const query of searchQueries) {
