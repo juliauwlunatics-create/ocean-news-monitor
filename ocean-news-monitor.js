@@ -5,32 +5,16 @@ const xml2js = require('xml2js');
 // Configuration
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL_OCEAN;
 
-// Search queries for ocean/conservation content (high-impact, no duplicates)
+// Search queries for ocean/conservation content (minimal, high-impact only)
 const queries = [
-  // CHARISMATIC WILDLIFE RECOVERY (visual, inspiring for content)
-  'whale recovery',
-  'whale population increase',
-  'sea turtle recovery',
   'shark conservation',
-  'shark fin ban',
-  
-  // CORAL & REEF (directly relevant to dive destinations)
+  'dolphin conservation',
+  'turtle conservation',
+  'cetacean conservation',
+  'coral conservation',
   'coral restoration',
-  'reef restoration project',
-  
-  // MARINE PROTECTED AREAS (relevant to destination strategy)
   'marine protected area',
-  'ocean sanctuary',
-  'marine sanctuary designation',
-  
-  // OCEAN CLEANUP (visual, actionable)
-  'ocean cleanup',
-  'plastic removal ocean',
-  
-  // CONSERVATION BREAKTHROUGHS (inspirational)
-  'conservation breakthrough',
-  'marine species recovery',
-  'endangered species protection success'
+  'ocean cleanup'
 ];
 
 // Positive keywords
@@ -103,22 +87,29 @@ function filterText(text) {
 function passesFilters(title, description) {
   const text = (title + ' ' + description).toLowerCase();
 
-  // Reject if negative keywords present
+  // HARD REJECT: Negative keywords
   if (negativeKeywords.some(k => text.includes(k))) {
     return false;
   }
 
-  // Require BOTH action (restore/protect/recovery/conservation) AND either success OR species
-  const hasAction = text.includes('restor') || text.includes('protect') || text.includes('conserv') || text.includes('recovery') || text.includes('cleanup');
-  const hasSuccess = text.includes('recovery') || text.includes('comeback') || text.includes('success') || text.includes('thriving') || text.includes('increase') || text.includes('designated') || text.includes('established');
-  const hasCharismaticSpecies = text.includes('whale') || text.includes('sea turtle') || text.includes('shark') || text.includes('coral') || text.includes('reef') || text.includes('marine protected');
-
-  // Must have action + (success OR charismatic species)
-  if (hasAction && (hasSuccess || hasCharismaticSpecies)) {
-    return true;
+  // Must mention a charismatic marine species
+  const hasSpecies = text.includes('shark') || text.includes('dolphin') || text.includes('turtle') || 
+                     text.includes('cetacean') || text.includes('whale') || text.includes('coral');
+  
+  if (!hasSpecies) {
+    return false;
   }
 
-  return false;
+  // Must have conservation/protection/restoration signal
+  const hasConservationSignal = text.includes('conserv') || text.includes('protect') || text.includes('restore') || 
+                                text.includes('designat') || text.includes('cleanup') || text.includes('sanctuary') ||
+                                text.includes('establish');
+  
+  if (!hasConservationSignal) {
+    return false;
+  }
+
+  return true;
 }
 
 function parseCategory(text) {
@@ -161,6 +152,28 @@ function chunk(array, size) {
   return chunks;
 }
 
+function postToSlackViaHttps(url, payload) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const options = {
+      hostname: urlObj.hostname,
+      path: urlObj.pathname + urlObj.search,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    });
+
+    req.on('error', reject);
+    req.write(JSON.stringify(payload));
+    req.end();
+  });
+}
+
 async function postToSlack(results) {
   if (results.length === 0) {
     console.log('[SLACK] No results to post');
@@ -181,11 +194,7 @@ async function postToSlack(results) {
     ]
   };
 
-  await fetch(SLACK_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(summaryMessage)
-  });
+  await postToSlackViaHttps(SLACK_WEBHOOK_URL, summaryMessage);
 
   // Split results into chunks of 5 per message
   const chunks = chunk(results, 5);
@@ -213,12 +222,7 @@ async function postToSlack(results) {
       ]
     };
 
-    await fetch(SLACK_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(message)
-    });
-
+    await postToSlackViaHttps(SLACK_WEBHOOK_URL, message);
     console.log(`[SLACK] Posted batch ${i + 1}/${chunks.length}`);
   }
 }
