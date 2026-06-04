@@ -146,7 +146,7 @@ function fetchGoogleNewsRSS(query) {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'Accept': 'application/rss+xml,application/xml;q=0.9,text/html;q=0.8,*/*;q=0.7',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Encoding': 'gzip, deflate',
         'Referer': 'https://news.google.com/',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -155,8 +155,17 @@ function fetchGoogleNewsRSS(query) {
     
     https.get(rssUrl, options, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
+      let stream = res;
+      
+      // Handle gzip/deflate compression
+      if (res.headers['content-encoding'] === 'gzip') {
+        stream = res.pipe(require('zlib').createGunzip());
+      } else if (res.headers['content-encoding'] === 'deflate') {
+        stream = res.pipe(require('zlib').createInflate());
+      }
+      
+      stream.on('data', chunk => data += chunk);
+      stream.on('end', () => {
         try {
           // Parse XML RSS feed
           const parser = new xml2js.Parser();
