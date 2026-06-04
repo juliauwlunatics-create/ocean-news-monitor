@@ -26,100 +26,46 @@ const CONFIG = {
   // Search queries for Google News RSS
   // These are the keywords we search for on Google News
   searchQueries: [
-    // Conservation & Protection
-    'ocean conservation',
-    'marine conservation',
-    'coral restoration',
-    'reef restoration',
-    'marine protected area',
-    'ocean sanctuary',
-    'marine sanctuary',
-    'seagrass restoration',
-    'mangrove restoration',
-    'kelp forest restoration',
-    'ocean preservation',
-    
-    // Cleanup & Pollution Solutions
-    'ocean cleanup',
-    'plastic removal ocean',
-    'ocean plastic solution',
-    'marine debris cleanup',
-    'microplastics removal',
-    'ocean pollution solution',
-    'beach cleanup initiative',
-    
-    // Sustainable & Responsible Practices
-    'sustainable fishing',
-    'sustainable seafood',
-    'regenerative ocean farming',
-    'ocean farming',
-    'seaweed farming',
-    'blue economy',
-    'ocean agriculture',
-    
-    // Wildlife & Ecosystem
-    'whale migration',
+    // WILDLIFE STORIES (priority)
     'whale recovery',
-    'sea turtle conservation',
+    'whale population increase',
     'dolphin protection',
     'shark conservation',
+    'shark fin ban',
+    'sea turtle recovery',
     'fish population recovery',
-    'marine biodiversity',
-    'ocean ecosystem recovery',
-    'mangrove ecosystem',
-    'coral reef health',
     'seabird protection',
+    'marine biodiversity',
     
-    // Research & Science
+    // CORAL & REEF (priority)
+    'coral restoration',
+    'reef restoration',
+    'coral reef health',
+    'bleaching recovery',
+    
+    // SCIENTIFIC BREAKTHROUGHS (priority)
     'marine research breakthrough',
     'ocean research discovery',
     'marine biology breakthrough',
     'oceanography research',
-    'ocean acidification solution',
     'marine science innovation',
-    'sea level monitoring',
-    'ocean temperature research',
     
-    // Technology & Innovation
-    'ocean technology innovation',
-    'marine technology',
-    'ocean monitoring technology',
-    'underwater robotics',
-    'ocean conservation technology',
-    'sustainable aquaculture technology',
-    'ocean energy renewable',
-    'wave energy ocean',
+    // CONSERVATION POLICY & DECISIONS (priority)
+    'marine protected area',
+    'ocean sanctuary',
+    'marine protection law',
+    'conservation ban',
+    'wildlife protection policy',
+    'endangered species protection',
+    'international marine agreement',
     
-    // Community & Initiatives
-    'ocean restoration project',
+    // RESTORATION PROJECTS
+    'reef restoration project',
     'marine conservation initiative',
     'coastal restoration',
-    'ocean partnership conservation',
-    'community ocean cleanup',
-    'citizen science ocean',
-    
-    // Specific Animals & Topics
-    'sea turtle recovery',
-    'whale population increase',
-    'shark fin ban',
-    'marine protected species',
-    'bioluminescent ocean',
-    'deep sea discovery',
-    'ocean exploration',
-    'marine expedition',
-    
-    // Climate Solutions
-    'blue carbon',
-    'ocean carbon sequestration',
-    'marine climate solution',
-    'coastal climate adaptation',
-    
-    // General Positive Ocean News
-    'ocean health',
-    'ocean restoration',
-    'marine life recovery',
-    'wildlife comeback',
-    'environmental victory'
+    'seagrass restoration',
+    'mangrove restoration',
+    'kelp forest restoration'
   ],
   
   // Positive keywords to prioritize
