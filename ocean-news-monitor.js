@@ -5,16 +5,54 @@ const xml2js = require('xml2js');
 // Configuration
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL_OCEAN;
 
-// Search queries for ocean/conservation content (minimal, high-impact only)
+// Search queries for ocean/conservation content (expanded, filtered by major outlets only)
 const queries = [
+  // MARINE MAMMALS
   'shark conservation',
   'dolphin conservation',
   'turtle conservation',
   'cetacean conservation',
-  'coral conservation',
+  'whale protection',
+  'sea lion protection',
+  
+  // CORAL & REEF
   'coral restoration',
+  'coral conservation',
+  'reef restoration',
+  'coral bleaching solutions',
+  
+  // COASTAL ECOSYSTEMS
+  'mangrove restoration',
+  'seagrass restoration',
+  'kelp forest restoration',
+  'coastal restoration',
+  
+  // MARINE PROTECTION & POLICY
   'marine protected area',
-  'ocean cleanup'
+  'ocean sanctuary',
+  'ocean conservation policy',
+  'international marine agreement',
+  
+  // FISHERIES & SUSTAINABLE PRACTICES
+  'sustainable fishing',
+  'fish stock recovery',
+  'overfishing solutions',
+  'sustainable aquaculture',
+  
+  // OCEAN POLLUTION & CLEANUP
+  'ocean cleanup',
+  'plastic pollution ocean',
+  'marine debris removal',
+  
+  // MARINE SCIENCE & BIODIVERSITY
+  'marine biodiversity',
+  'ocean research breakthrough',
+  'marine species discovery',
+  
+  // OCEAN & CLIMATE
+  'ocean acidification solutions',
+  'blue carbon',
+  'marine carbon capture'
 ];
 
 // Positive keywords
@@ -26,13 +64,40 @@ const positiveKeywords = [
   'success', 'thriving', 'comeback', 'increase', 'growth'
 ];
 
-// Negative keywords to exclude
-const negativeKeywords = [
-  'die', 'dead', 'dying', 'death', 'kill', 'killed', 'extinction',
-  'collapse', 'collapse', 'decline', 'threat', 'threatened',
-  'pollution', 'toxic', 'damage', 'destroyed', 'destroyed',
-  'crisis', 'emergency', 'disaster', 'disappearing', 'disappear'
+// Whitelist of major news outlets only
+const allowedSources = [
+  'reuters.com',
+  'apnews.com',
+  'bbc.com',
+  'bbc.co.uk',
+  'theguardian.com',
+  'nytimes.com',
+  'washingtonpost.com',
+  'nationalgeographic.com',
+  'nature.com',
+  'science.org',
+  'sciencedaily.com',
+  'phys.org',
+  'theverge.com',
+  'wired.com',
+  'forbes.com',
+  'economist.com',
+  'ft.com',
+  'axios.com',
+  'pbs.org',
+  'npr.org'
 ];
+
+function isFromTrustworthySource(link) {
+  if (!link) return false;
+  try {
+    const url = new URL(link);
+    const domain = url.hostname.replace('www.', '');
+    return allowedSources.some(source => domain.includes(source));
+  } catch (e) {
+    return false;
+  }
+}
 
 // Google News RSS URLs
 function getGoogleNewsUrls(query) {
@@ -92,34 +157,54 @@ function passesFilters(title, description) {
     return false;
   }
 
-  // Must mention a charismatic marine species
-  const hasSpecies = text.includes('shark') || text.includes('dolphin') || text.includes('turtle') || 
-                     text.includes('cetacean') || text.includes('whale') || text.includes('coral');
+  // Accept if mentions marine species OR conservation topics
+  const hasMamarine = text.includes('shark') || text.includes('dolphin') || text.includes('turtle') || 
+                      text.includes('cetacean') || text.includes('whale') || text.includes('coral') ||
+                      text.includes('sea lion') || text.includes('seal') || text.includes('fish') ||
+                      text.includes('seagrass') || text.includes('mangrove') || text.includes('kelp');
   
-  if (!hasSpecies) {
-    return false;
-  }
+  const hasConservationTopic = text.includes('marine protected') || text.includes('sanctuary') ||
+                               text.includes('sustainable fish') || text.includes('aquaculture') ||
+                               text.includes('biodiversity') || text.includes('ocean cleanup') ||
+                               text.includes('plastic') || text.includes('ocean policy') ||
+                               text.includes('blue carbon') || text.includes('acidification') ||
+                               text.includes('restoration') || text.includes('conservation') ||
+                               text.includes('protected area');
 
-  // Must have conservation/protection/restoration signal
+  // Must have conservation signal AND (species OR conservation topic)
   const hasConservationSignal = text.includes('conserv') || text.includes('protect') || text.includes('restore') || 
-                                text.includes('designat') || text.includes('cleanup') || text.includes('sanctuary') ||
-                                text.includes('establish');
+                                text.includes('sustainable') || text.includes('cleanup') || text.includes('solution');
   
   if (!hasConservationSignal) {
     return false;
   }
 
-  return true;
+  if (hasMamarine || hasConservationTopic) {
+    return true;
+  }
+
+  return false;
 }
 
 function parseCategory(text) {
-  if (text.toLowerCase().includes('whale')) return 'Marine Mammals';
-  if (text.toLowerCase().includes('sea turtle')) return 'Marine Life';
-  if (text.toLowerCase().includes('shark')) return 'Shark Conservation';
-  if (text.toLowerCase().includes('coral') || text.toLowerCase().includes('reef')) return 'Coral & Reef Restoration';
-  if (text.toLowerCase().includes('marine protected') || text.toLowerCase().includes('sanctuary')) return 'Marine Protection';
-  if (text.toLowerCase().includes('cleanup') || text.toLowerCase().includes('plastic')) return 'Ocean Cleanup';
-  return 'Conservation';
+  const lower = text.toLowerCase();
+  if (lower.includes('shark')) return 'Shark Conservation';
+  if (lower.includes('dolphin') || lower.includes('cetacean')) return 'Marine Mammals';
+  if (lower.includes('whale')) return 'Whale Conservation';
+  if (lower.includes('turtle')) return 'Sea Turtle';
+  if (lower.includes('sea lion') || lower.includes('seal')) return 'Marine Mammals';
+  if (lower.includes('coral') || lower.includes('bleach')) return 'Coral & Reef';
+  if (lower.includes('reef')) return 'Coral & Reef';
+  if (lower.includes('mangrove')) return 'Mangrove Restoration';
+  if (lower.includes('seagrass')) return 'Seagrass Restoration';
+  if (lower.includes('kelp')) return 'Kelp Forest';
+  if (lower.includes('marine protected') || lower.includes('sanctuary')) return 'Marine Protection';
+  if (lower.includes('fish') && (lower.includes('stock') || lower.includes('fishing'))) return 'Sustainable Fisheries';
+  if (lower.includes('aquaculture')) return 'Sustainable Aquaculture';
+  if (lower.includes('cleanup') || lower.includes('plastic') || lower.includes('debris')) return 'Ocean Cleanup';
+  if (lower.includes('biodiversity') || lower.includes('discovery') || lower.includes('research')) return 'Marine Science';
+  if (lower.includes('acidification') || lower.includes('carbon') || lower.includes('climate')) return 'Climate & Ocean';
+  return 'Ocean Conservation';
 }
 
 async function fetchRSSFeed(url) {
@@ -239,7 +324,7 @@ async function main() {
       const items = await fetchRSSFeed(url);
       
       for (const item of items) {
-        if (passesFilters(item.title, item.description)) {
+        if (passesFilters(item.title, item.description) && isFromTrustworthySource(item.link)) {
           allResults.push({
             title: item.title,
             description: item.description,
@@ -256,7 +341,7 @@ async function main() {
     new Map(allResults.map(r => [r.link, r])).values()
   );
 
-  console.log(`[FOUND] ${uniqueResults.length} unique stories`);
+  console.log(`[FOUND] ${uniqueResults.length} unique stories from major outlets`);
 
   // Post to Slack
   await postToSlack(uniqueResults);
