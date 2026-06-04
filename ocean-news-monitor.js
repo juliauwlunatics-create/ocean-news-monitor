@@ -135,84 +135,100 @@ const CONFIG = {
 };
 
 /**
- * Fetch RSS feed from Google News
+ * Fetch RSS feed from Google News (with redirect handling)
  */
 function fetchGoogleNewsRSS(query) {
   return new Promise((resolve, reject) => {
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}`;
-    
-    const options = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'application/rss+xml,application/xml;q=0.9,text/html;q=0.8,*/*;q=0.7',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate',
-        'Referer': 'https://news.google.com/',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
-    };
-    
-    https.get(rssUrl, options, (res) => {
-      let data = '';
-      let stream = res;
+    const makeRequest = (url) => {
+      const options = {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'application/rss+xml,application/xml;q=0.9,text/html;q=0.8,*/*;q=0.7',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate',
+          'Referer': 'https://news.google.com/',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      };
       
-      console.log(`      [RESPONSE] Status: ${res.statusCode}, Encoding: ${res.headers['content-encoding'] || 'none'}`);
-      
-      // Handle gzip/deflate compression
-      if (res.headers['content-encoding'] === 'gzip') {
-        console.log(`      [DECOMPRESS] Using gzip`);
-        stream = res.pipe(require('zlib').createGunzip());
-      } else if (res.headers['content-encoding'] === 'deflate') {
-        console.log(`      [DECOMPRESS] Using deflate`);
-        stream = res.pipe(require('zlib').createInflate());
-      } else {
-        console.log(`      [NO-COMPRESS] Data coming uncompressed`);
-      }
-      
-      stream.on('data', chunk => {
-        data += chunk;
-      });
-      
-      stream.on('end', () => {
-        console.log(`      [DATA] Received ${data.length} bytes`);
-        if (data.length > 0) {
-          console.log(`      [PREVIEW] First 100 chars: ${data.substring(0, 100)}`);
+      https.get(url, options, (res) => {
+        // Handle redirects
+        if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
+          const redirectUrl = res.headers.location;
+          console.log(`      [REDIRECT] Status ${res.statusCode} -> ${redirectUrl.substring(0, 50)}...`);
+          res.resume(); // Drain response
+          if (redirectUrl.startsWith('http')) {
+            makeRequest(redirectUrl);
+          } else {
+            makeRequest(`https://news.google.com${redirectUrl}`);
+          }
+          return;
         }
         
-        try {
-          if (!data || data.length === 0) {
-            console.log(`      [ERROR] Empty response data`);
-            resolve({ rss: { channel: [{ item: [] }] } });
-            return;
+        let data = '';
+        let stream = res;
+        
+        console.log(`      [RESPONSE] Status: ${res.statusCode}, Encoding: ${res.headers['content-encoding'] || 'none'}`);
+        
+        // Handle gzip/deflate compression
+        if (res.headers['content-encoding'] === 'gzip') {
+          console.log(`      [DECOMPRESS] Using gzip`);
+          stream = res.pipe(require('zlib').createGunzip());
+        } else if (res.headers['content-encoding'] === 'deflate') {
+          console.log(`      [DECOMPRESS] Using deflate`);
+          stream = res.pipe(require('zlib').createInflate());
+        } else {
+          console.log(`      [NO-COMPRESS] Data coming uncompressed`);
+        }
+        
+        stream.on('data', chunk => {
+          data += chunk;
+        });
+        
+        stream.on('end', () => {
+          console.log(`      [DATA] Received ${data.length} bytes`);
+          if (data.length > 0) {
+            console.log(`      [PREVIEW] First 100 chars: ${data.substring(0, 100)}`);
           }
           
-          // Parse XML RSS feed
-          const parser = new xml2js.Parser();
-          parser.parseString(data, (err, result) => {
-            if (err) {
-              console.log(`      [PARSE-ERROR] ${err.message}`);
-              reject(new Error(`Failed to parse RSS: ${err.message}`));
-            } else {
-              console.log(`      [PARSED] Success`);
-              resolve(result);
+          try {
+            if (!data || data.length === 0) {
+              console.log(`      [ERROR] Empty response data`);
+              resolve({ rss: { channel: [{ item: [] }] } });
+              return;
             }
-          });
-        } catch (e) {
-          console.log(`      [EXCEPTION] ${e.message}`);
-          reject(new Error(`Failed to process RSS response: ${e.message}`));
-        }
-      });
-      
-      stream.on('error', (err) => {
-        console.log(`      [STREAM-ERROR] ${err.message}`);
+            
+            // Parse XML RSS feed
+            const parser = new xml2js.Parser();
+            parser.parseString(data, (err, result) => {
+              if (err) {
+                console.log(`      [PARSE-ERROR] ${err.message}`);
+                reject(new Error(`Failed to parse RSS: ${err.message}`));
+              } else {
+                console.log(`      [PARSED] Success`);
+                resolve(result);
+              }
+            });
+          } catch (e) {
+            console.log(`      [EXCEPTION] ${e.message}`);
+            reject(new Error(`Failed to process RSS response: ${e.message}`));
+          }
+        });
+        
+        stream.on('error', (err) => {
+          console.log(`      [STREAM-ERROR] ${err.message}`);
+          reject(err);
+        });
+        
+      }).on('error', (err) => {
+        console.log(`      [REQUEST-ERROR] ${err.message}`);
         reject(err);
       });
-      
-    }).on('error', (err) => {
-      console.log(`      [REQUEST-ERROR] ${err.message}`);
-      reject(err);
-    });
+    };
+    
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}`;
+    makeRequest(rssUrl);
   });
 }
 
