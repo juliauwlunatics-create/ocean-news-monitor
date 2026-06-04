@@ -180,15 +180,32 @@ function fetchGoogleNewsRSS(query) {
  */
 function extractArticlesFromRSS(rssData) {
   try {
-    const items = rssData.rss.channel[0].item || [];
-    return items.map(item => ({
-      title: item.title ? item.title[0] : 'No title',
-      description: item.description ? item.description[0] : '',
-      link: item.link ? item.link[0] : '',
-      pubDate: item.pubDate ? item.pubDate[0] : '',
-      source: item.source ? item.source[0] : 'Google News'
-    }));
+    const channel = rssData.rss.channel[0];
+    const items = channel.item || [];
+    
+    console.log(`   [DEBUG] Found ${items.length} total items in RSS feed`);
+    
+    return items.map((item, index) => {
+      try {
+        const title = item.title ? (Array.isArray(item.title) ? item.title[0] : item.title) : 'No title';
+        const description = item.description ? (Array.isArray(item.description) ? item.description[0] : item.description) : '';
+        const link = item.link ? (Array.isArray(item.link) ? item.link[0] : item.link) : '';
+        const pubDate = item.pubDate ? (Array.isArray(item.pubDate) ? item.pubDate[0] : item.pubDate) : '';
+        
+        return {
+          title: title,
+          description: description,
+          link: link,
+          pubDate: pubDate,
+          source: 'Google News'
+        };
+      } catch (e) {
+        console.log(`   [DEBUG] Error parsing item ${index}: ${e.message}`);
+        return null;
+      }
+    }).filter(item => item !== null);
   } catch (e) {
+    console.log(`   [DEBUG] Error extracting articles: ${e.message}`);
     return [];
   }
 }
