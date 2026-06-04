@@ -1,433 +1,419 @@
+#!/usr/bin/env node
+
+/**
+ * Underwater Lunatics Ocean News Monitor
+ * Uses Google News RSS to monitor positive ocean-related news
+ * Filters by reputable news outlets using source names in article titles
+ * No API key needed - completely free!
+ */
+
 const https = require('https');
 const zlib = require('zlib');
 const xml2js = require('xml2js');
 
 // Configuration
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL_OCEAN;
+const SLACK_CHANNEL = '#positive-ocean-news';
 
-// Search queries for ocean/conservation content (significantly expanded)
-const queries = [
-  // MARINE MAMMALS
-  'shark conservation',
-  'shark protection',
-  'dolphin conservation',
+// ─────────────────────────────────────────────
+// SEARCH QUERIES
+// Focused, non-overlapping topics
+// ─────────────────────────────────────────────
+const searchQueries = [
+  // Marine mammals & charismatic wildlife
   'whale conservation',
-  'whale recovery',
-  'sea lion protection',
-  'seal protection',
-  'manatee conservation',
-  'cetacean protection',
-  
-  // SEA TURTLES
+  'dolphin conservation',
+  'shark conservation',
   'sea turtle conservation',
-  'sea turtle recovery',
-  'turtle nesting protection',
-  
-  // CORAL & REEF
+  'cetacean protection',
+
+  // Coral & reef
   'coral restoration',
-  'coral conservation',
-  'coral recovery',
-  'reef restoration',
-  'reef protection',
-  'coral bleaching recovery',
-  'coral gardening',
-  
-  // COASTAL ECOSYSTEMS
-  'mangrove restoration',
-  'seagrass restoration',
-  'kelp forest restoration',
-  'coastal restoration',
-  'salt marsh restoration',
-  'eelgrass restoration',
-  
-  // MARINE PROTECTION & POLICY
+  'coral reef recovery',
+
+  // Marine protection & policy
   'marine protected area',
-  'ocean sanctuary',
-  'ocean conservation',
-  'marine conservation',
-  'marine reserve',
-  'deep sea protection',
-  'ocean preservation',
-  'marine policy',
-  'ocean governance',
-  
-  // FISHERIES & SUSTAINABLE PRACTICES
-  'sustainable fishing',
-  'sustainable seafood',
-  'fish stock recovery',
-  'overfishing solutions',
-  'sustainable aquaculture',
-  'alternative protein',
-  'fishing regulations',
-  
-  // OCEAN POLLUTION & CLEANUP
-  'ocean cleanup',
-  'plastic pollution solution',
-  'marine debris removal',
-  'ocean plastic',
-  'sea pollution solution',
-  'microplastic reduction',
-  
-  // MARINE SCIENCE & BIODIVERSITY
-  'marine biodiversity',
-  'ocean research',
+  'ocean sanctuary designation',
+
+  // Science & breakthroughs
   'marine research breakthrough',
-  'species discovery ocean',
-  'marine biology',
-  'oceanography',
-  'ocean monitoring',
-  
-  // OCEAN HEALTH & CLIMATE
-  'ocean acidification solution',
-  'blue carbon',
-  'marine carbon capture',
-  'ocean temperature management',
-  'ocean health',
-  'marine ecosystem restoration',
-  'seabird protection',
-  'marine wildlife protection'
+  'ocean species discovery',
+
+  // Cleanup & solutions
+  'ocean cleanup success',
+  'plastic pollution solution ocean'
 ];
 
-// Positive keywords
-const positiveKeywords = [
-  'conservation', 'protect', 'restore', 'clean', 'sustainable',
-  'research', 'discovery', 'solution', 'recovery', 'restore',
-  'breakthrough', 'innovation', 'agreement', 'ban', 'sanctuary',
-  'protected', 'program', 'initiative', 'project', 'effort',
-  'success', 'thriving', 'comeback', 'increase', 'growth'
-];
+// ─────────────────────────────────────────────
+// TRUSTED NEWS SOURCES
+// Google News RSS puts the source name at the END of the title,
+// separated by " - " (e.g., "Sharks recover off coast - Reuters")
+// We match against that suffix.
+// ─────────────────────────────────────────────
+const trustedSources = [
+  // Wire services
+  'reuters',
+  'associated press',
+  'ap news',
+  'afp',
 
-// Negative keywords to exclude
-const negativeKeywords = [
-  'die', 'dead', 'dying', 'death', 'kill', 'killed', 'extinction',
-  'collapse', 'decline', 'threat', 'threatened',
-  'pollution', 'toxic', 'damage', 'destroyed',
-  'crisis', 'emergency', 'disaster', 'disappearing', 'disappear'
-];
+  // Major broadcasters & newspapers
+  'bbc',
+  'the guardian',
+  'guardian',
+  'new york times',
+  'washington post',
+  'the independent',
+  'the telegraph',
+  'financial times',
+  'the economist',
+  'wall street journal',
+  'the atlantic',
+  'time',
 
-// Whitelist of major news outlets (expanded)
-const allowedSources = [
-  // Major wire services
-  'reuters.com',
-  'apnews.com',
-  'bbc.com',
-  'bbc.co.uk',
-  'aljazeera.com',
-  
-  // Major newspapers
-  'theguardian.com',
-  'nytimes.com',
-  'washingtonpost.com',
-  'independent.co.uk',
-  'telegraph.co.uk',
-  'ft.com',
-  'economist.com',
-  'wsj.com',
-  'thepublicindex.org',
-  
-  // Science & environment outlets
-  'nationalgeographic.com',
-  'nature.com',
-  'science.org',
-  'sciencedaily.com',
+  // Science & environment
+  'national geographic',
+  'nature',
+  'science',
+  'scientific american',
+  'new scientist',
+  'science daily',
   'phys.org',
-  'eurekalert.org',
-  'mongabay.com',
-  'ecowatch.com',
-  'theecologist.org',
-  'inhabitat.com',
-  'treehugger.com',
-  'carbonbrief.org',
-  
-  // Tech & innovation
-  'theverge.com',
-  'wired.com',
-  'forbes.com',
-  'fastcompany.com',
-  'techcrunch.com',
-  
-  // Public broadcasters & news organizations
-  'pbs.org',
-  'npr.org',
-  'axios.com',
-  'vox.com',
-  'slate.com',
-  'politico.com',
-  'buzzfeednews.com',
-  
-  // Business & sustainability
-  'businesswire.com',
-  'prnewswire.com',
-  'csrwire.com',
-  
-  // International outlets
-  'theconversation.com',
-  'dw.com',
-  'euronews.com',
-  'rfi.fr',
-  'scmp.com',
-  'straitstimes.com'
+  'mongabay',
+  'the conversation',
+  'carbon brief',
+
+  // Reputable digital
+  'npr',
+  'pbs',
+  'axios',
+  'wired',
+  'vox',
+  'al jazeera',
+
+  // Ocean-specific
+  'oceana',
+  'noaa',
+  'iucn',
+  'wwf',
+  'greenpeace',
+  'ocean conservancy',
+
+  // Regional quality outlets
+  'abc news',
+  'cbc',
+  'sky news',
+  'deutsche welle',
+  'dw',
+  'euronews',
+  'south china morning post',
+  'straits times'
 ];
 
-function isFromTrustworthySource(link) {
-  if (!link) return false;
-  try {
-    const url = new URL(link);
-    const domain = url.hostname.replace('www.', '');
-    return allowedSources.some(source => domain.includes(source));
-  } catch (e) {
-    return false;
-  }
+// ─────────────────────────────────────────────
+// CONTENT FILTERS
+// Must have at least one positive signal
+// ─────────────────────────────────────────────
+const positiveSignals = [
+  'conserv', 'protect', 'restor', 'recover', 'sanctuar', 'ban',
+  'discovery', 'breakthrough', 'solution', 'cleanup', 'clean up',
+  'thriv', 'rebound', 'increas', 'success', 'initiative', 'program',
+  'designat', 'agreement', 'treaty', 'milestone', 'record'
+];
+
+// Hard reject — only truly doom-framing exclusions
+const hardRejectTerms = [
+  'mass die-off', 'mass death', 'gone extinct', 'wiped out',
+  'collapse imminent', 'collapse of'
+];
+
+// ─────────────────────────────────────────────
+// SOURCE CHECK
+// Google News titles look like: "Title text - Source Name"
+// We extract the part after the last " - " and match it
+// ─────────────────────────────────────────────
+function isFromTrustedSource(title) {
+  if (!title) return false;
+
+  // Extract source: everything after the last " - "
+  const dashIndex = title.lastIndexOf(' - ');
+  if (dashIndex === -1) return false;
+
+  const sourcePart = title.substring(dashIndex + 3).toLowerCase().trim();
+
+  return trustedSources.some(source => sourcePart.includes(source));
 }
 
-// Google News RSS URLs
-function getGoogleNewsUrls(query) {
-  const encoded = encodeURIComponent(query);
-  return [
-    `https://news.google.com/rss/search?q=${encoded}`,
-    `https://news.google.com/rss/search?q=${encoded}+news`
-  ];
+// ─────────────────────────────────────────────
+// CONTENT FILTER
+// ─────────────────────────────────────────────
+function passesContentFilter(title, description) {
+  const text = (title + ' ' + (description || '')).toLowerCase();
+
+  // Hard reject
+  if (hardRejectTerms.some(term => text.includes(term))) return false;
+
+  // Must have at least one positive signal
+  return positiveSignals.some(signal => text.includes(signal));
 }
 
-function makeRequest(url) {
+// ─────────────────────────────────────────────
+// CATEGORY DETECTION
+// ─────────────────────────────────────────────
+function detectCategory(text) {
+  const t = text.toLowerCase();
+  if (t.includes('whale') || t.includes('cetacean')) return '🐋 Whales & Cetaceans';
+  if (t.includes('dolphin'))                          return '🐬 Dolphins';
+  if (t.includes('shark'))                            return '🦈 Sharks';
+  if (t.includes('turtle'))                           return '🐢 Sea Turtles';
+  if (t.includes('coral') || t.includes('reef'))     return '🪸 Coral & Reefs';
+  if (t.includes('protected area') || t.includes('sanctuary')) return '🛡️ Marine Protection';
+  if (t.includes('research') || t.includes('discovery') || t.includes('species')) return '🔬 Science & Discovery';
+  if (t.includes('cleanup') || t.includes('plastic') || t.includes('pollution')) return '♻️ Cleanup & Solutions';
+  return '🌊 Ocean Conservation';
+}
+
+// ─────────────────────────────────────────────
+// RSS FETCHER (handles redirects + compression)
+// ─────────────────────────────────────────────
+function fetchRSS(query) {
   return new Promise((resolve, reject) => {
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Accept': 'application/rss+xml, application/xml, text/xml, */*',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Accept-Encoding': 'gzip, deflate',
-      'Referer': 'https://news.google.com/',
-      'Cache-Control': 'no-cache'
+    const makeRequest = (requestUrl, redirectCount = 0) => {
+      if (redirectCount > 5) {
+        return reject(new Error('Too many redirects'));
+      }
+
+      const options = {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate',
+          'Referer': 'https://news.google.com/',
+          'Cache-Control': 'no-cache'
+        }
+      };
+
+      https.get(requestUrl, options, (res) => {
+        // Handle redirects
+        if ([301, 302, 307, 308].includes(res.statusCode)) {
+          const location = res.headers.location;
+          res.resume();
+          const nextUrl = location.startsWith('http')
+            ? location
+            : `https://news.google.com${location}`;
+          return makeRequest(nextUrl, redirectCount + 1);
+        }
+
+        let stream = res;
+        if (res.headers['content-encoding'] === 'gzip') {
+          stream = res.pipe(zlib.createGunzip());
+        } else if (res.headers['content-encoding'] === 'deflate') {
+          stream = res.pipe(zlib.createInflate());
+        }
+
+        let data = '';
+        stream.on('data', chunk => data += chunk);
+        stream.on('end', () => resolve(data));
+        stream.on('error', reject);
+      }).on('error', reject);
     };
 
-    https.get(url, { headers }, (res) => {
-      let data = '';
-
-      // Handle redirects
-      if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
-        const redirectUrl = res.headers.location;
-        res.resume();
-        return makeRequest(redirectUrl).then(resolve).catch(reject);
-      }
-
-      // Handle gzip
-      let stream = res;
-      if (res.headers['content-encoding'] === 'gzip') {
-        stream = res.pipe(zlib.createGunzip());
-      } else if (res.headers['content-encoding'] === 'deflate') {
-        stream = res.pipe(zlib.createInflate());
-      }
-
-      stream.on('data', chunk => data += chunk);
-      stream.on('end', () => resolve(data));
-      stream.on('error', reject);
-    }).on('error', reject);
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+    makeRequest(url);
   });
 }
 
-function filterText(text) {
-  if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-}
-
-function passesFilters(title, description) {
-  const text = (title + ' ' + description).toLowerCase();
-
-  // HARD REJECT: Only the most negative keywords
-  const hardReject = ['die', 'extinction', 'collapse'];
-  if (hardReject.some(k => text.includes(k))) {
-    return false;
-  }
-
-  // Accept if has ocean/marine + conservation/positive signal
-  const hasOceanKeyword = text.includes('ocean') || text.includes('marine') || text.includes('coral') || 
-                          text.includes('reef') || text.includes('shark') || text.includes('whale') ||
-                          text.includes('dolphin') || text.includes('turtle') || text.includes('fish') ||
-                          text.includes('seagrass') || text.includes('mangrove') || text.includes('kelp') ||
-                          text.includes('aquatic') || text.includes('water') || text.includes('coastal');
-  
-  const hasPositiveSignal = text.includes('conserv') || text.includes('protect') || text.includes('restore') || 
-                            text.includes('sustain') || text.includes('clean') || text.includes('research') ||
-                            text.includes('solution') || text.includes('recovery') || text.includes('save') ||
-                            text.includes('safe') || text.includes('sanctuary') || text.includes('refuge');
-  
-  if (hasOceanKeyword && hasPositiveSignal) {
-    return true;
-  }
-
-  return false;
-}
-
-function parseCategory(text) {
-  const lower = text.toLowerCase();
-  if (lower.includes('shark')) return 'Shark Conservation';
-  if (lower.includes('dolphin') || lower.includes('cetacean')) return 'Marine Mammals';
-  if (lower.includes('whale')) return 'Whale Conservation';
-  if (lower.includes('turtle')) return 'Sea Turtle';
-  if (lower.includes('sea lion') || lower.includes('seal')) return 'Marine Mammals';
-  if (lower.includes('coral') || lower.includes('bleach')) return 'Coral & Reef';
-  if (lower.includes('reef')) return 'Coral & Reef';
-  if (lower.includes('mangrove')) return 'Mangrove Restoration';
-  if (lower.includes('seagrass')) return 'Seagrass Restoration';
-  if (lower.includes('kelp')) return 'Kelp Forest';
-  if (lower.includes('marine protected') || lower.includes('sanctuary')) return 'Marine Protection';
-  if (lower.includes('fish') && (lower.includes('stock') || lower.includes('fishing'))) return 'Sustainable Fisheries';
-  if (lower.includes('aquaculture')) return 'Sustainable Aquaculture';
-  if (lower.includes('cleanup') || lower.includes('plastic') || lower.includes('debris')) return 'Ocean Cleanup';
-  if (lower.includes('biodiversity') || lower.includes('discovery') || lower.includes('research')) return 'Marine Science';
-  if (lower.includes('acidification') || lower.includes('carbon') || lower.includes('climate')) return 'Climate & Ocean';
-  return 'Ocean Conservation';
-}
-
-async function fetchRSSFeed(url) {
+// ─────────────────────────────────────────────
+// PARSE RSS XML
+// ─────────────────────────────────────────────
+async function parseRSS(xml) {
   try {
-    const xml = await makeRequest(url);
     const parser = new xml2js.Parser();
     const result = await parser.parseStringPromise(xml);
+    const items = result?.rss?.channel?.[0]?.item || [];
 
-    if (!result.rss || !result.rss.channel || !Array.isArray(result.rss.channel[0].item)) {
-      return [];
-    }
+    return items.map(item => {
+      const title = Array.isArray(item.title) ? item.title[0] : (item.title || '');
+      const desc  = Array.isArray(item.description) ? item.description[0] : (item.description || '');
+      const link  = Array.isArray(item.link) ? item.link[0] : (item.link || '');
 
-    return result.rss.channel[0].item.map(item => ({
-      title: filterText(item.title?.[0] || ''),
-      description: filterText(item.description?.[0] || ''),
-      link: item.link?.[0] || '',
-      pubDate: item.pubDate?.[0] || new Date().toISOString()
-    }));
-  } catch (error) {
-    console.error(`[ERROR] Failed to fetch RSS from ${url}:`, error.message);
+      return {
+        title: title.replace(/<[^>]*>/g, '').trim(),
+        description: desc.replace(/<[^>]*>/g, '').trim(),
+        link
+      };
+    });
+  } catch {
     return [];
   }
 }
 
-function chunk(array, size) {
-  const chunks = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
-}
-
-function postToSlackViaHttps(url, payload) {
+// ─────────────────────────────────────────────
+// SLACK — send via native https
+// ─────────────────────────────────────────────
+function postToSlack(payload) {
   return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
+    const body = JSON.stringify(payload);
+    const urlObj = new URL(SLACK_WEBHOOK_URL);
     const options = {
       hostname: urlObj.hostname,
       path: urlObj.pathname + urlObj.search,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
+      }
     };
 
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(data));
+    const req = https.request(options, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => resolve(d));
     });
-
     req.on('error', reject);
-    req.write(JSON.stringify(payload));
+    req.write(body);
     req.end();
   });
 }
 
-async function postToSlack(results) {
-  // Post summary message (always, even if no results)
-  const summaryMessage = {
-    text: `🌊 Ocean News Monitor\nFound ${results.length} stories today`,
+// ─────────────────────────────────────────────
+// SEND RESULTS TO SLACK
+// Splits into batches of 5 to avoid truncation
+// ─────────────────────────────────────────────
+async function sendToSlack(articles) {
+  const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Summary message (always sent)
+  await postToSlack({
     blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: `🌊 Positive Ocean News — ${date}`, emoji: true }
+      },
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `🌊 *Ocean News Monitor*\nFound *${results.length}* stories today`
+          text: articles.length > 0
+            ? `Found *${articles.length}* stories from trusted outlets today.`
+            : `📭 No stories found today from trusted outlets. Monitoring continues tomorrow.`
         }
       }
     ]
-  };
+  });
 
-  await postToSlackViaHttps(SLACK_WEBHOOK_URL, summaryMessage);
-  console.log('[SLACK] Posted summary message');
+  if (articles.length === 0) return;
 
-  if (results.length === 0) {
-    console.log('[SLACK] No results to post');
-    return;
+  // Send in batches of 5
+  const batchSize = 5;
+  const batches = [];
+  for (let i = 0; i < articles.length; i += batchSize) {
+    batches.push(articles.slice(i, i + batchSize));
   }
 
-  // Split results into chunks of 5 per message
-  const chunks = chunk(results, 5);
-  
-  for (let i = 0; i < chunks.length; i++) {
-    const chunkData = chunks[i];
-    const fields = chunkData.map(result => ({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*${result.title}*\n_${result.category}_\n${result.description}\n<${result.link}|Read more>`
-      }
-    }));
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    const blocks = [
+      {
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: `*Stories ${i * batchSize + 1}–${i * batchSize + batch.length}* of ${articles.length}` }]
+      },
+      { type: 'divider' }
+    ];
 
-    const message = {
-      blocks: [
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*Batch ${i + 1}/${chunks.length}* (${chunkData.length} items)`
-          }
-        },
-        ...fields
-      ]
-    };
+    for (const article of batch) {
+      // Strip source name from title for cleaner display
+      const cleanTitle = article.title.replace(/ - [^-]+$/, '').trim();
+      const dashIndex = article.title.lastIndexOf(' - ');
+      const sourceName = dashIndex !== -1 ? article.title.substring(dashIndex + 3) : '';
 
-    await postToSlackViaHttps(SLACK_WEBHOOK_URL, message);
-    console.log(`[SLACK] Posted batch ${i + 1}/${chunks.length}`);
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: [
+            `${article.category}`,
+            `*${cleanTitle}*`,
+            article.description ? article.description.substring(0, 180) + (article.description.length > 180 ? '...' : '') : '',
+            sourceName ? `_Source: ${sourceName}_` : '',
+            `<${article.link}|Read full story>`
+          ].filter(Boolean).join('\n')
+        }
+      });
+      blocks.push({ type: 'divider' });
+    }
+
+    await postToSlack({ blocks });
+    console.log(`[SLACK] Posted batch ${i + 1}/${batches.length}`);
   }
 }
 
+// ─────────────────────────────────────────────
+// MAIN
+// ─────────────────────────────────────────────
 async function main() {
   console.log('[START] Ocean News Monitor');
-  
-  const allResults = [];
-  let totalFetched = 0;
-  let contentFiltered = 0;
-  let sourceFiltered = 0;
+  console.log(`[DATE] ${new Date().toISOString()}`);
 
-  for (const query of queries) {
-    const urls = getGoogleNewsUrls(query);
-    
-    for (const url of urls) {
-      const items = await fetchRSSFeed(url);
-      totalFetched += items.length;
-      
-      for (const item of items) {
-        if (passesFilters(item.title, item.description)) {
-          // Temporarily skip source filter
-          allResults.push({
-            title: item.title,
-            description: item.description,
-            link: item.link,
-            category: parseCategory(item.title + ' ' + item.description)
-          });
-        } else {
-          contentFiltered++;
-        }
-      }
-    }
+  if (!SLACK_WEBHOOK_URL) {
+    console.error('[ERROR] SLACK_WEBHOOK_URL_OCEAN not set');
+    process.exit(1);
   }
 
-  // Remove duplicates by link
-  const uniqueResults = Array.from(
-    new Map(allResults.map(r => [r.link, r])).values()
+  const seen = new Set();
+  const results = [];
+  let totalFetched = 0;
+  let sourceFiltered = 0;
+  let contentFiltered = 0;
+
+  for (const query of searchQueries) {
+    try {
+      const xml = await fetchRSS(query);
+      const items = await parseRSS(xml);
+      totalFetched += items.length;
+
+      for (const item of items) {
+        if (seen.has(item.link)) continue;
+        seen.add(item.link);
+
+        if (!isFromTrustedSource(item.title)) {
+          sourceFiltered++;
+          continue;
+        }
+
+        if (!passesContentFilter(item.title, item.description)) {
+          contentFiltered++;
+          continue;
+        }
+
+        results.push({
+          ...item,
+          category: detectCategory(item.title + ' ' + item.description)
+        });
+      }
+    } catch (err) {
+      console.error(`[ERROR] Query "${query}": ${err.message}`);
+    }
+
+    // Small delay to be polite to Google
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  console.log(`[STATS] Fetched: ${totalFetched} | Source-filtered: ${sourceFiltered} | Content-filtered: ${contentFiltered} | Kept: ${results.length}`);
+
+  // Deduplicate by clean title (in case same story appears under multiple queries)
+  const deduped = Array.from(
+    new Map(results.map(r => [r.title.replace(/ - [^-]+$/, '').toLowerCase(), r])).values()
   );
 
-  console.log(`[DEBUG] Total fetched: ${totalFetched}, Content filtered: ${contentFiltered}, Source filtered: ${sourceFiltered}`);
-  console.log(`[FOUND] ${uniqueResults.length} unique stories from major outlets`);
+  console.log(`[FOUND] ${deduped.length} unique stories from trusted outlets`);
 
-  // Post to Slack
-  await postToSlack(uniqueResults);
-
+  await sendToSlack(deduped);
   console.log('[DONE] Ocean News Monitor completed');
 }
 
-main().catch(console.error);
+main().catch(err => {
+  console.error('[FATAL]', err.message);
+  process.exit(1);
+});
