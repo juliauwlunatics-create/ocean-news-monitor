@@ -332,26 +332,27 @@ function postToSlackViaHttps(url, payload) {
 }
 
 async function postToSlack(results) {
-  if (results.length === 0) {
-    console.log('[SLACK] No results to post');
-    return;
-  }
-
-  // Post summary message
+  // Post summary message (always, even if no results)
   const summaryMessage = {
-    text: `🌊 Ocean News Monitor\nFound ${results.length} positive stories today`,
+    text: `🌊 Ocean News Monitor\nFound ${results.length} stories today`,
     blocks: [
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `🌊 *Ocean News Monitor*\nFound *${results.length}* positive stories today`
+          text: `🌊 *Ocean News Monitor*\nFound *${results.length}* stories today`
         }
       }
     ]
   };
 
   await postToSlackViaHttps(SLACK_WEBHOOK_URL, summaryMessage);
+  console.log('[SLACK] Posted summary message');
+
+  if (results.length === 0) {
+    console.log('[SLACK] No results to post');
+    return;
+  }
 
   // Split results into chunks of 5 per message
   const chunks = chunk(results, 5);
@@ -388,21 +389,28 @@ async function main() {
   console.log('[START] Ocean News Monitor');
   
   const allResults = [];
+  let totalFetched = 0;
+  let contentFiltered = 0;
+  let sourceFiltered = 0;
 
   for (const query of queries) {
     const urls = getGoogleNewsUrls(query);
     
     for (const url of urls) {
       const items = await fetchRSSFeed(url);
+      totalFetched += items.length;
       
       for (const item of items) {
-        if (passesFilters(item.title, item.description) && isFromTrustworthySource(item.link)) {
+        if (passesFilters(item.title, item.description)) {
+          // Temporarily skip source filter
           allResults.push({
             title: item.title,
             description: item.description,
             link: item.link,
             category: parseCategory(item.title + ' ' + item.description)
           });
+        } else {
+          contentFiltered++;
         }
       }
     }
@@ -413,6 +421,7 @@ async function main() {
     new Map(allResults.map(r => [r.link, r])).values()
   );
 
+  console.log(`[DEBUG] Total fetched: ${totalFetched}, Content filtered: ${contentFiltered}, Source filtered: ${sourceFiltered}`);
   console.log(`[FOUND] ${uniqueResults.length} unique stories from major outlets`);
 
   // Post to Slack
