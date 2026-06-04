@@ -64,6 +64,14 @@ const positiveKeywords = [
   'success', 'thriving', 'comeback', 'increase', 'growth'
 ];
 
+// Negative keywords to exclude
+const negativeKeywords = [
+  'die', 'dead', 'dying', 'death', 'kill', 'killed', 'extinction',
+  'collapse', 'decline', 'threat', 'threatened',
+  'pollution', 'toxic', 'damage', 'destroyed',
+  'crisis', 'emergency', 'disaster', 'disappearing', 'disappear'
+];
+
 // Whitelist of major news outlets only
 const allowedSources = [
   'reuters.com',
