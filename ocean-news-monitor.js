@@ -141,7 +141,19 @@ function fetchGoogleNewsRSS(query) {
   return new Promise((resolve, reject) => {
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}`;
     
-    https.get(rssUrl, (res) => {
+    const options = {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'application/rss+xml,application/xml;q=0.9,text/html;q=0.8,*/*;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://news.google.com/',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    };
+    
+    https.get(rssUrl, options, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
