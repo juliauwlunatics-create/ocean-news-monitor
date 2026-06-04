@@ -157,30 +157,62 @@ function fetchGoogleNewsRSS(query) {
       let data = '';
       let stream = res;
       
+      console.log(`      [RESPONSE] Status: ${res.statusCode}, Encoding: ${res.headers['content-encoding'] || 'none'}`);
+      
       // Handle gzip/deflate compression
       if (res.headers['content-encoding'] === 'gzip') {
+        console.log(`      [DECOMPRESS] Using gzip`);
         stream = res.pipe(require('zlib').createGunzip());
       } else if (res.headers['content-encoding'] === 'deflate') {
+        console.log(`      [DECOMPRESS] Using deflate`);
         stream = res.pipe(require('zlib').createInflate());
+      } else {
+        console.log(`      [NO-COMPRESS] Data coming uncompressed`);
       }
       
-      stream.on('data', chunk => data += chunk);
+      stream.on('data', chunk => {
+        data += chunk;
+      });
+      
       stream.on('end', () => {
+        console.log(`      [DATA] Received ${data.length} bytes`);
+        if (data.length > 0) {
+          console.log(`      [PREVIEW] First 100 chars: ${data.substring(0, 100)}`);
+        }
+        
         try {
+          if (!data || data.length === 0) {
+            console.log(`      [ERROR] Empty response data`);
+            resolve({ rss: { channel: [{ item: [] }] } });
+            return;
+          }
+          
           // Parse XML RSS feed
           const parser = new xml2js.Parser();
           parser.parseString(data, (err, result) => {
             if (err) {
+              console.log(`      [PARSE-ERROR] ${err.message}`);
               reject(new Error(`Failed to parse RSS: ${err.message}`));
             } else {
+              console.log(`      [PARSED] Success`);
               resolve(result);
             }
           });
         } catch (e) {
+          console.log(`      [EXCEPTION] ${e.message}`);
           reject(new Error(`Failed to process RSS response: ${e.message}`));
         }
       });
-    }).on('error', reject);
+      
+      stream.on('error', (err) => {
+        console.log(`      [STREAM-ERROR] ${err.message}`);
+        reject(err);
+      });
+      
+    }).on('error', (err) => {
+      console.log(`      [REQUEST-ERROR] ${err.message}`);
+      reject(err);
+    });
   });
 }
 
