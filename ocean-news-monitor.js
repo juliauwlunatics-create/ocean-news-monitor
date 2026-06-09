@@ -191,7 +191,8 @@ async function parseRSS(xml) {
     return (result?.rss?.channel?.[0]?.item || []).map(item => ({
       title:       (Array.isArray(item.title)       ? item.title[0]       : item.title       || '').replace(/<[^>]*>/g, '').trim(),
       description: (Array.isArray(item.description) ? item.description[0] : item.description || '').replace(/<[^>]*>/g, '').trim(),
-      link:        Array.isArray(item.link)          ? item.link[0]        : item.link        || ''
+      link:        Array.isArray(item.link)          ? item.link[0]        : item.link        || '',
+      pubDate:     Array.isArray(item.pubDate)       ? item.pubDate[0]     : item.pubDate     || ''
     }));
   } catch { return []; }
 }
@@ -249,7 +250,7 @@ async function sendToSlack(articles) {
         text: {
           type: 'mrkdwn',
           text: [
-            `${a.category}${source ? `  ·  _${source}_` : ''}`,
+            `${a.category}${source ? `  ·  _${source}_` : ''}${a.publishedLabel ? `  ·  ${a.publishedLabel}` : ''}`,
             `*${cleanTitle}*`,
             a.description ? a.description.substring(0, 200) + (a.description.length > 200 ? '...' : '') : '',
             `<${a.link}|Read full story>`
@@ -273,7 +274,11 @@ async function main() {
 
   const seen = new Set();
   const results = [];
-  let fetched = 0, sourceOut = 0, contentOut = 0;
+  let fetched = 0, sourceOut = 0, contentOut = 0, dateOut = 0;
+
+  // Only accept articles published in the last 7 days
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
 
   for (const query of searchQueries) {
     try {
@@ -285,10 +290,20 @@ async function main() {
         if (seen.has(item.link)) continue;
         seen.add(item.link);
 
+        // Date filter — skip anything older than 7 days
+        if (item.pubDate) {
+          const published = new Date(item.pubDate);
+          if (!isNaN(published) && published < cutoff) { dateOut++; continue; }
+        }
+
         if (!isFromTrustedSource(item.title))                   { sourceOut++;  continue; }
         if (!passesContentFilter(item.title, item.description)) { contentOut++; continue; }
 
-        results.push({ ...item, category: detectCategory(item.title + ' ' + item.description) });
+        const publishedLabel = item.pubDate
+          ? new Date(item.pubDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+          : '';
+
+        results.push({ ...item, category: detectCategory(item.title + ' ' + item.description), publishedLabel });
       }
     } catch (e) { console.error(`[ERROR] "${query}": ${e.message}`); }
 
@@ -299,7 +314,7 @@ async function main() {
     new Map(results.map(r => [r.title.replace(/ - [^-]+$/, '').toLowerCase(), r])).values()
   );
 
-  console.log(`[STATS] Fetched: ${fetched} | Source-rejected: ${sourceOut} | Content-rejected: ${contentOut} | Final: ${deduped.length}`);
+  console.log(`[STATS] Fetched: ${fetched} | Date-rejected: ${dateOut} | Source-rejected: ${sourceOut} | Content-rejected: ${contentOut} | Final: ${deduped.length}`);
   await sendToSlack(deduped);
   console.log('[DONE]');
 }
