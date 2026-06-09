@@ -16,14 +16,36 @@ const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL_OCEAN;
 // SEARCH QUERIES — narrow & specific
 // ─────────────────────────────────────────────
 const searchQueries = [
-  'coral reef restoration success',
-  'marine protected area established',
-  'shark population recovery',
-  'whale population recovery',
-  'sea turtle population recovery',
-  'ocean cleanup breakthrough',
-  'marine conservation agreement',
-  'dolphin conservation success'
+  // Marine wildlife
+  'shark conservation',
+  'whale conservation',
+  'dolphin conservation',
+  'sea turtle conservation',
+  'manta ray conservation',
+  'marine mammal recovery',
+
+  // Coral & ecosystems
+  'coral reef restoration',
+  'coral reef recovery',
+  'mangrove restoration',
+  'seagrass restoration',
+  'kelp forest restoration',
+
+  // Marine protection & policy
+  'marine protected area',
+  'ocean sanctuary',
+  'marine conservation law',
+  'fishing ban ocean',
+
+  // Science & discovery
+  'marine species discovery',
+  'ocean research breakthrough',
+  'coral bleaching recovery',
+
+  // Cleanup & solutions
+  'ocean plastic cleanup',
+  'ocean cleanup project',
+  'marine debris removal'
 ];
 
 // ─────────────────────────────────────────────
@@ -38,19 +60,27 @@ const searchQueries = [
 // - Would be cited in a university essay or boardroom presentation
 // ─────────────────────────────────────────────
 const trustedSources = [
-  // Tier 1 — Major international wire services
+  // Wire services
   'reuters',
   'associated press',
   'ap news',
   'afp',
+  'bloomberg',
 
-  // Tier 1 — Global broadcasters
+  // Global broadcasters
   'bbc',
   'al jazeera',
   'deutsche welle',
   'dw',
+  'euronews',
+  'abc australia',
+  'abc news australia',
+  'sky news',
+  'cbc',
+  'npr',
+  'pbs',
 
-  // Tier 1 — Elite newspapers
+  // Elite newspapers & magazines
   'the guardian',
   'guardian',
   'new york times',
@@ -60,31 +90,48 @@ const trustedSources = [
   'wall street journal',
   'the independent',
   'the times',
+  'the atlantic',
+  'time',
+  'newsweek',
   'le monde',
   'der spiegel',
+  'the telegraph',
+  'the age',           // Australian quality press
+  'sydney morning herald',
+  'straits times',     // Singapore
+  'south china morning post',
+  'japan times',
 
-  // Tier 1 — Premium science & nature publications
+  // Science & nature
   'national geographic',
   'nature',
   'science',
   'scientific american',
   'new scientist',
+  'science daily',
+  'phys.org',
+  'live science',
+  'earth.com',
 
-  // Tier 2 — Respected environment & ocean journalism
-  'mongabay',       // Gold standard for conservation journalism
-  'the conversation', // Peer-reviewed academic journalism
-  'carbon brief',   // Climate & environment, research-backed
+  // Environment & ocean specialist press
+  'mongabay',
+  'the conversation',
+  'carbon brief',
+  'ecowatch',
+  'inside climate news',
+  'e360',              // Yale Environment 360
+  'hakai magazine',    // Ocean-focused journalism
+  'ocean conservancy',
+  'oceana',
 
-  // Tier 2 — Respected public broadcasters
-  'npr',
-  'pbs',
-  'cbc',
-  'abc news',       // Australian ABC, not American
-
-  // Tier 2 — Official scientific/conservation bodies (press releases count)
+  // Official bodies & institutions
   'noaa',
   'iucn',
-  'wwf'
+  'wwf',
+  'greenpeace',
+  'pew',
+  'woods hole',
+  'scripps institution'
 ];
 
 // ─────────────────────────────────────────────
@@ -117,9 +164,11 @@ const rejectTerms = [
 function passesContentFilter(title, description) {
   const text = (title + ' ' + (description || '')).toLowerCase();
   if (rejectTerms.some(t => text.includes(t))) return false;
+  // Require event word OR outcome word (not both — the 7-day date filter
+  // already handles freshness, so we don't need to be this strict)
   const hasEvent   = eventWords.some(w => text.includes(w));
   const hasOutcome = outcomeWords.some(w => text.includes(w));
-  return hasEvent && hasOutcome;
+  return hasEvent || hasOutcome;
 }
 
 // ─────────────────────────────────────────────
