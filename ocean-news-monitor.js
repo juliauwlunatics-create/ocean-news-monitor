@@ -325,9 +325,11 @@ async function main() {
   const results = [];
   let fetched = 0, sourceOut = 0, contentOut = 0, dateOut = 0;
 
-  // Only accept articles published in the last 7 days
+  // Only accept articles published in the last 48 hours
+  // (48h instead of 24h gives a small buffer for timezone differences
+  // and Google News indexing delays)
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 7);
+  cutoff.setHours(cutoff.getHours() - 48);
 
   for (const query of searchQueries) {
     try {
